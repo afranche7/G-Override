@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Removes what install.ps1 added: the Startup shortcut, and stops the running Helper.
-  Leaves AutoHotkey, Claude skills, config.local.ini and the repo itself untouched.
+  Leaves AutoHotkey, Claude skills (never removed), config.local.ini and the repo itself untouched.
 #>
 [CmdletBinding()]
 param()

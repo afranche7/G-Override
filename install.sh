@@ -4,6 +4,7 @@
 #   - Installs Hammerspoon via Homebrew if it's missing
 #   - Adds a marked block to ~/.hammerspoon/init.lua that loads the Helper (your own config is kept)
 #   - Starts Hammerspoon and turns on its auto-launch at login
+#   - Installs Matt Pocock's skills (npx) if none of the Main Flow skills are found
 #   - Prints the macOS permissions Hammerspoon needs
 #
 #   ./install.sh               install
@@ -21,12 +22,13 @@ WAIT_S=${G_OVERRIDE_WAIT_S:-15}
 
 DOCTOR=0
 NO_START=0
+SKIP_SKILLS=0
 for arg in "$@"; do
   case "$arg" in
     --doctor) DOCTOR=1 ;;
     --no-start) NO_START=1 ;;
-    --skip-skills) ;;  # the skills step isn't part of the macOS installer yet
-    -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --skip-skills) SKIP_SKILLS=1 ;;
+    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $arg (try --help)" >&2; exit 2 ;;
   esac
 done
@@ -110,6 +112,46 @@ find_claude_app() {
   return 0
 }
 
+# --- Main Flow skills --------------------------------------------------------
+
+SKILLS_NPX_ARGS='skills@latest add mattpocock/skills --skill=setup-matt-pocock-skills'
+
+main_flow_skills() {
+  ini_get skills main_flow | tr ',' '\n' | awk '{ gsub(/^[ \t]+|[ \t]+$/, ""); if ($0 != "") print }'
+}
+
+# A skill is present as a user skill (npx skills installs under ~/.claude/skills or ~/.agents/skills) or inside
+# an installed plugin (~/.claude/plugins/cache, or the Claude desktop app's own plugin folder), at any depth.
+skill_present() {
+  for d in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
+    [ -f "$d/$1/SKILL.md" ] && return 0
+  done
+  for d in "$HOME/.claude/plugins/cache" "$HOME/Library/Application Support/Claude/rpm"; do
+    [ -d "$d" ] || continue
+    [ -n "$(find "$d" -type f -name SKILL.md -path "*/$1/SKILL.md" 2>/dev/null | head -n 1)" ] && return 0
+  done
+  return 1
+}
+
+any_skill_present() {
+  for s in $(main_flow_skills); do skill_present "$s" && return 0; done
+  return 1
+}
+
+install_skills() {
+  if [ "$SKIP_SKILLS" = 1 ]; then echo "  Skills: skipped (--skip-skills)."; return 0; fi
+  if [ -z "$(main_flow_skills)" ] || any_skill_present; then echo "  Skills: Main Flow skills already installed."; return 0; fi
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "  npx not found, so Matt Pocock's skills were not installed. Install Node.js, then run:"
+    echo "    npx $SKILLS_NPX_ARGS"
+    return 0
+  fi
+  # shellcheck disable=SC2086
+  if npx $SKILLS_NPX_ARGS; then echo "  Skills: installed Matt Pocock's skills."
+  else echo "  Installing Matt Pocock's skills failed. Retry: npx $SKILLS_NPX_ARGS"; fi
+  return 0
+}
+
 ALL_OK=1
 check() {  # check <ok 0|1> <label> [hint]
   if [ "$1" = 1 ]; then
@@ -151,6 +193,11 @@ doctor() {
     "System Settings > Privacy & Security > Screen Recording > turn on Hammerspoon"
   claude=$(find_claude_app)
   check "$(yes_if [ -n "$claude" ])" "Claude App found${claude:+ ($claude)}" "Install the Claude desktop app from https://claude.ai/download"
+
+  echo "  Main Flow skills:"
+  for s in $(main_flow_skills); do
+    if skill_present "$s"; then echo "    [ok] $s"; else echo "    [--] $s (missing; run ./install.sh, or install Matt Pocock's skills)"; fi
+  done
 
   if [ "$ALL_OK" = 1 ]; then echo "All good."; return 0; fi
   echo "Some checks failed."
@@ -205,7 +252,10 @@ cat "$tmp" > "$HS_INIT"  # write through, so a symlinked init.lua stays a symlin
 rm -f "$tmp"
 echo "  Hammerspoon init: $HS_INIT"
 
-# 3. Start or reload Hammerspoon, then turn on auto-launch
+# 3. Main Flow skills
+install_skills
+
+# 4. Start or reload Hammerspoon, then turn on auto-launch
 if [ "$NO_START" = 1 ]; then
   echo "  Not starting Hammerspoon (--no-start). Reload its config to pick up G-Override."
 else

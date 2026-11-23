@@ -6,6 +6,7 @@
   - Installs AutoHotkey v2 via winget if it's missing
   - Resolves the Claude App's launch id into config.local.ini
   - Registers the Helper to start at login (Startup folder shortcut) and starts it now
+  - Installs Matt Pocock's skills (npx) if none of the Main Flow skills are found; -SkipSkills turns that off
   Run with -Doctor to check an existing install without changing anything.
 
 .EXAMPLE
@@ -23,6 +24,7 @@ $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
 $HelperScript = Join-Path $Root 'windows\g-override.ahk'
 $LocalIni = Join-Path $Root 'config.local.ini'
+. (Join-Path $Root 'windows\lib\Skills.ps1')
 $StartupShortcut = Join-Path ([Environment]::GetFolderPath('Startup')) 'G-Override.lnk'
 
 function Find-AutoHotkey {
@@ -101,6 +103,11 @@ function Invoke-Doctor {
     $allOk = (Write-Check (Test-Path $StartupShortcut) 'Starts at login (Startup shortcut)' 'Run .\install.ps1') -and $allOk
     $appId = Get-ClaudeAppId
     $allOk = (Write-Check ([bool]$appId) "Claude App found $(if ($appId) { "($appId)" })" 'Install the Claude desktop app from https://claude.ai/download') -and $allOk
+    Write-Host '  Main Flow skills:'
+    foreach ($s in Get-SkillStatus $Root $HOME) {
+        if ($s.Present) { Write-Host "    [ok] $($s.Name)" -ForegroundColor Green }
+        else { Write-Host "    [--] $($s.Name) (missing; run .\install.ps1, or install Matt Pocock's skills)" -ForegroundColor Yellow }
+    }
     if ($allOk) { Write-Host 'All good.' -ForegroundColor Green } else { Write-Host 'Some checks failed.' -ForegroundColor Yellow }
     return $allOk
 }
@@ -151,6 +158,17 @@ Write-Host "  Starts at login: $StartupShortcut"
 if (-not $NoStart) {
     Start-Helper $ahk
     Write-Host '  Helper started.'
+}
+
+# 6. Main Flow skills
+$npx = (Get-Command npx -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+$skillsResult = Install-MainFlowSkills $Root $HOME -Skip:$SkipSkills -Npx $npx -Runner { param($n, $a) & $n @a | Out-Host }
+switch ($skillsResult) {
+    'skipped'   { Write-Host '  Skills: skipped (-SkipSkills).' }
+    'present'   { Write-Host '  Skills: Main Flow skills already installed.' }
+    'installed' { Write-Host '  Skills: installed Matt Pocock''s skills.' }
+    'no-npx'    { Write-Warning 'npx not found, so Matt Pocock''s skills were not installed. Install Node.js, then run: npx skills@latest add mattpocock/skills --skill=setup-matt-pocock-skills' }
+    'failed'    { Write-Warning 'Installing Matt Pocock''s skills failed. Retry: npx skills@latest add mattpocock/skills --skill=setup-matt-pocock-skills' }
 }
 
 Write-Host ''

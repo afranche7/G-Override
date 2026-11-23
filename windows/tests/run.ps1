@@ -8,7 +8,10 @@ try {
         -RedirectStandardOutput $out -RedirectStandardError "$out.err"
     Get-Content $out
     Get-Content "$out.err"
-    exit $p.ExitCode
+    $failures = $p.ExitCode
+    # Installer-side (PowerShell) tests
+    powershell -NoProfile -File (Join-Path $PSScriptRoot 'TestSkills.ps1')
+    exit ($failures + $LASTEXITCODE)
 } finally {
     Remove-Item $out, "$out.err" -ErrorAction SilentlyContinue
 }
