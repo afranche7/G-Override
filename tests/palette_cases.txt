@@ -1,0 +1,110 @@
+# How the Prompt Palette file is parsed. Both Helpers' tests parse every fixture listed here
+# (and the same fixture with CRLF line endings) and compare the result with the items under it,
+# so Windows and macOS read a palette file identically.
+#
+# [name.md] names a fixture in tests/palette/. The lines under it are the items it parses to, in order:
+#   entry: <title>         a Palette Entry, followed by its fields:
+#   body: <text>             the text to insert
+#   send: true               auto-submit (omitted = false)
+#   action: <name>           region-snip or window-snip (omitted = none)
+#   separator:
+#   group: <title>
+# A fixture with nothing under it parses to no items.
+# In values, \n is a newline, \t a tab and \\ a backslash.
+# Blank lines and lines starting with # are ignored.
+
+[headings.md]
+entry: First
+body: hello world
+entry: Second
+body: line one\nline two
+entry: Inner blank line
+body: line one\n\nline three
+
+[send-flag.md]
+entry: Go
+body: /implement
+send: true
+entry: Wait
+body: /grill-with-docs
+entry: Shouty
+body: hi
+send: true
+entry: Off
+body: hi
+entry: Late flag
+body: hi\nsend: true
+
+[capture-actions.md]
+entry: Region Snip
+body: @region-snip
+action: region-snip
+entry: Window Snip
+body: @window-snip
+action: window-snip
+entry: Mixed case
+body: @Window-Snip
+action: window-snip
+entry: Text
+body: hello
+entry: Unknown action
+body: @nonsense
+entry: Action plus text
+body: @region-snip\nand more
+
+[groups.md]
+group: Skills
+entry: A
+body: a
+entry: B
+body: b
+separator:
+group: Capture
+entry: C
+body: @region-snip
+action: region-snip
+
+[separators.md]
+entry: A
+body: a
+separator:
+entry: B
+body: b
+
+[empty-groups.md]
+group: Real
+entry: A
+body: a
+
+[preamble.md]
+entry: A
+body:   body
+
+[comments.md]
+entry: Real
+body: hello  world
+
+[placeholders.md]
+entry: Explain
+body: Explain this: {selection}
+entry: Compare
+body: Compare {selection} with {clipboard}
+
+[empty-body.md]
+entry: Real
+body: x
+
+[empty.md]
+
+[no-headings.md]
+
+[blank-title.md]
+
+[only-send.md]
+
+[only-separators.md]
+
+# Saved with a UTF-8 byte order mark, as some editors do: the first heading still counts.
+[bom.md]
+entry: First
+body: hello

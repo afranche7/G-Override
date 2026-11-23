@@ -9,78 +9,48 @@ Titles(entries) {
 
 ; --- parser ----------------------------------------------------------------
 
-Test("Palette: each ## heading is an entry whose body is the text to insert", () => (
-    e := ParsePalette("## First`nhello world`n`n## Second`nline one`nline two`n"),
-    AssertEq(e.Length, 2),
-    AssertEq(e[1].kind, "entry"),
-    AssertEq(e[1].title, "First"),
-    AssertEq(e[1].body, "hello world"),
-    AssertEq(e[2].body, "line one`nline two"),
-    AssertFalse(e[1].send)
-))
+; The cases in tests/palette_cases.txt (shared with the macOS tests): [{file, line, items}],
+; each item {kind, title, body, send, action}.
+PaletteCases() {
+    path := REPO_ROOT "\tests\palette_cases.txt"
+    cases := []
+    for i, line in StrSplit(FileRead(path, "UTF-8"), "`n", "`r") {
+        if RegExMatch(line, "^\[(.+)\]$", &m) {
+            cases.Push({file: m[1], line: i, items: []})
+        } else if line != "" && SubStr(line, 1, 1) != "#" {
+            if !RegExMatch(line, "^([A-Za-z]+): ?(.*)$", &m) || !cases.Length
+                throw Error(path ":" i ": can't parse '" line "'")
+            key := m[1], value := UnescapeCase(m[2])
+            items := cases[cases.Length].items
+            if key == "entry" || key == "group" || key == "separator"
+                items.Push({kind: key, title: value, body: "", send: false, action: ""})
+            else if items.Length && (key == "body" || key == "send" || key == "action")
+                items[items.Length].%key% := key == "send" ? value == "true" : value
+            else
+                throw Error(path ":" i ": unexpected '" key "'")
+        }
+    }
+    return cases
+}
 
-Test("Palette: a leading send: true line marks auto-submit and is not part of the body", () => (
-    e := ParsePalette("## Go`nsend: true`n/implement`n`n## Wait`n/grill`n"),
-    AssertTrue(e[1].send),
-    AssertEq(e[1].body, "/implement"),
-    AssertFalse(e[2].send),
-    e2 := ParsePalette("## X`nSend:  TRUE`nhi"),
-    AssertTrue(e2[1].send)
-))
+; Items as comparable lines: kind|title|body|send|action.
+DescribeItems(items) {
+    s := ""
+    for it in items
+        s .= (A_Index > 1 ? "`n" : "") it.kind "|" it.title "|" it.body "|" (it.send ? "true" : "false") "|" it.action
+    return s
+}
 
-Test("Palette: send: false is the default and the line is still not part of the body", () => (
-    e := ParsePalette("## X`nsend: false`nhi"),
-    AssertFalse(e[1].send),
-    AssertEq(e[1].body, "hi")
-))
+Test("Shared palette cases exist", () => AssertTrue(PaletteCases().Length > 0, "no cases"))
 
-Test("Palette: @region-snip and @window-snip bodies are capture actions, not text", () => (
-    e := ParsePalette("## Region Snip`n@region-snip`n`n## Window Snip`n@window-snip`n"),
-    AssertEq(e[1].action, "region-snip"),
-    AssertEq(e[2].action, "window-snip"),
-    t := ParsePalette("## Text`nhello"),
-    AssertEq(t[1].action, "")
-))
-
-Test("Palette: an unknown @action is treated as plain text", () => (
-    e := ParsePalette("## Odd`n@nonsense"),
-    AssertEq(e[1].action, ""),
-    AssertEq(e[1].body, "@nonsense")
-))
-
-Test("Palette: --- makes a separator and # makes a group label", () => (
-    e := ParsePalette("# Skills`n## A`na`n## B`nb`n---`n# Capture`n## C`n@region-snip`n"),
-    AssertEq(Titles(e), "Skills|A|B|---|Capture|C"),
-    AssertEq(e[1].kind, "group"),
-    AssertEq(e[4].kind, "separator")
-))
-
-Test("Palette: stray, doubled, leading and trailing separators are dropped", () => (
-    e := ParsePalette("---`n## A`na`n---`n---`n## B`nb`n---`n"),
-    AssertEq(Titles(e), "A|---|B")
-))
-
-Test("Palette: text before the first heading is ignored, blank lines around bodies are trimmed", () => (
-    e := ParsePalette("My prompts`nnotes here`n`n## A`n`n`n  body  `n`n`n"),
-    AssertEq(e.Length, 1),
-    AssertEq(e[1].body, "  body")
-))
-
-Test("Palette: CRLF files parse the same as LF", () => (
-    e := ParsePalette("## A`r`nsend: true`r`nline1`r`nline2`r`n`r`n## B`r`nx`r`n"),
-    AssertEq(e[1].body, "line1`nline2"),
-    AssertTrue(e[1].send),
-    AssertEq(e[2].title, "B")
-))
-
-Test("Palette: malformed input is handled gracefully", () => (
-    AssertEq(ParsePalette("").Length, 0),
-    AssertEq(ParsePalette("no headings at all`njust text").Length, 0),
-    AssertEq(ParsePalette("## `nbody").Length, 0),
-    AssertEq(ParsePalette("## Empty body`n`n## Real`nx").Length, 1),
-    AssertEq(ParsePalette("## Only send`nsend: true`n").Length, 0),
-    AssertEq(ParsePalette("---`n---").Length, 0)
-))
+for c in PaletteCases() {
+    text := FileRead(REPO_ROOT "\tests\palette\" c.file, "UTF-8")
+    lf := StrReplace(text, "`r`n", "`n")
+    Test("Palette: " c.file " (palette_cases.txt:" c.line ")",
+        ((c, t) => () => AssertEq(DescribeItems(ParsePalette(t)), DescribeItems(c.items)))(c, lf))
+    Test("Palette: " c.file " with CRLF line endings (palette_cases.txt:" c.line ")",
+        ((c, t) => () => AssertEq(DescribeItems(ParsePalette(t)), DescribeItems(c.items)))(c, StrReplace(lf, "`n", "`r`n")))
+}
 
 Test("Palette: the starter palette has the six Main Flow skills in order, a separator, then both snips", () => (
     e := ParsePalette(FileRead(REPO_ROOT "\palette.md", "UTF-8")),
@@ -107,6 +77,10 @@ Test("Placeholders: {selection} and {clipboard} are replaced where they appear",
 
 Test("Placeholders: a replacement containing braces or $ is inserted literally", () => (
     AssertEq(FillPalette("x {selection}", "{clipboard} `$1", "NO"), "x {clipboard} `$1")
+))
+
+Test("Placeholders: matched case-insensitively, other braces left alone", () => (
+    AssertEq(FillPalette("{other} {Selection} {SELECTION} {Clipboard}", "a", "b"), "{other} a a b")
 ))
 
 ; --- Prompt Palette action -------------------------------------------------
@@ -291,9 +265,4 @@ Test("A cancelled Region Snip from the palette does nothing", () => (
     AssertFalse(Actions(port, TestConfig()).PromptPalette()),
     AssertEq(port.pasted.Length, 0),
     AssertEq(port.clipText, "user's clipboard")
-))
-
-Test("Palette: <!-- comments --> are ignored, including multi-line ones with # and --- inside", () => (
-    e := ParsePalette("<!--`n# not a group`n---`n## not an entry`n-->`n## Real`nhello"),
-    AssertEq(Titles(e), "Real")
 ))

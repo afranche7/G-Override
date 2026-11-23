@@ -41,6 +41,23 @@ describe("Bindings", function()
     assert.truthy(port.pasted[1].text:find("hello", 1, true))
   end)
 
+  it("binds G8 to the Prompt Palette on its configured Trigger Key", function()
+    local b = bindings.buttonBindings(helpers.testConfig())
+    assert.are.equal("G8", b[3].button)
+    assert.are.equal("F19", b[3].trigger)
+    assert.are.equal("Prompt Palette", b[3].name)
+  end)
+
+  it("opens the Prompt Palette when the G8 binding fires", function()
+    local port = FakePort.new()
+    port:addApp(100, "com.google.Chrome", "Google Chrome", "Docs")
+    port.frontmostId = 100
+    local cfg = helpers.testConfig()
+    port.files[cfg.paletteFile] = "## A\nhello"
+    bindings.run(Actions.new(port, cfg), bindings.buttonBindings(cfg)[3])
+    assert.are.equal(1, #port.paletteShown)
+  end)
+
   it("shows a debug toast naming the Button and Action when debug is on", function()
     local port = FakePort.new()
     local cfg = helpers.testConfig()

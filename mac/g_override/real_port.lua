@@ -1,6 +1,7 @@
 -- The real OS port: thin wrappers over Hammerspoon's hs.* modules.
 -- Keep logic out of here; it belongs in the Action layer, where it is tested.
 local bindings = require("g_override.bindings")  -- parses neutral key specs like "cmd+v"
+local paletteMenu = require("g_override.palette_menu")
 
 local M = {}
 M.__index = M
@@ -14,13 +15,15 @@ local function describe(app)
   return { id = app:pid(), bundleId = app:bundleID(), name = app:name() }
 end
 
--- The frontmost app, with its focused window's title (for Send to Claude's source line).
+-- The frontmost app, with its focused window's title (for Send to Claude's source line) and ID
+-- (for Window Snip).
 function M:frontmostApp()
   local app = hs.application.frontmostApplication()
   local out = describe(app)
   if out then
     local win = app:focusedWindow()
     out.title = win and win:title() or ""
+    out.windowId = win and win:id() or nil
   end
   return out
 end
@@ -66,6 +69,20 @@ function M:toast(msg)
   hs.alert.show(msg, 2)
 end
 
+-- The file's text, or nil and an error message.
+function M:readFile(path)
+  local f, err = io.open(path, "rb")
+  if not f then return nil, err end
+  local text = f:read("a")
+  f:close()
+  return text
+end
+
+-- The Prompt Palette's chooser at the cursor. Returns the picked entry, or nil if dismissed.
+function M:showPalette(items)
+  return paletteMenu.show(items, function(ms) self:sleep(ms) end)
+end
+
 -- --- clipboard ---------------------------------------------------------------
 
 function M:clipboardChangeCount() return hs.pasteboard.changeCount() end
@@ -105,6 +122,13 @@ end
 
 function M:regionCaptureOpen()
   return self.regionTask ~= nil and self.regionTask:isRunning()
+end
+
+-- One window, by its ID, straight to the clipboard: no shadow (-o), no shutter sound (-x).
+-- Returns false if screencapture can't start.
+function M:captureWindow(windowId)
+  local task = hs.task.new("/usr/sbin/screencapture", nil, { "-x", "-o", "-c", "-l", tostring(windowId) })
+  return task ~= nil and task:start() ~= false
 end
 
 return M

@@ -1,6 +1,7 @@
 -- The Action layer: what each Trigger Key does, expressed only through the OS port.
 -- Mirrors windows/lib/Actions.ahk; keep the two behaving the same.
 local format = require("g_override.format")
+local palette = require("g_override.palette")
 
 local Actions = {}
 Actions.__index = Actions
@@ -83,6 +84,60 @@ function Actions:sendToClaude()
   end)
 end
 
+-- Capture a dragged region and paste the image into the Claude App's prompt.
+function Actions:regionSnip()
+  return self:withClipboardRestored(function() return self:captureRegion() end)
+end
+
+-- Capture the frontmost window and paste the image into the Claude App's prompt.
+function Actions:windowSnip()
+  local front = self.port:frontmostApp()
+  return self:withClipboardRestored(function() return self:captureWindow(front and front.windowId) end)
+end
+
+-- Open the Prompt Palette at the cursor and run the picked entry. The Selection is captured
+-- first, before the palette takes focus. Dismissing it does nothing.
+function Actions:promptPalette()
+  local port = self.port
+  local items = self:loadPalette()
+  if #items == 0 then return false end
+  local userClip = port:clipboardText()
+  local origin = port:frontmostApp()  -- the window a Window Snip captures, whoever has focus later
+  return self:withClipboardRestored(function()
+    local sel = self:captureSelection()
+    local choice = port:showPalette(items)
+    if not choice then return false end
+    if choice.action == "region-snip" then return self:captureRegion() end
+    if choice.action == "window-snip" then return self:captureWindow(origin and origin.windowId) end
+
+    local selText = sel and sel.text or ""
+    -- A blank {selection} leaves no dangling space.
+    local text = palette.fill(choice.body, selText, userClip):gsub("[ \t\r\n]+$", "")
+    if selText ~= "" and not palette.hasSelectionPlaceholder(choice.body) then
+      text = text .. "\n\n" .. format.fencedBlock(selText)
+    end
+    port:clipboardSetText(text)
+    if not self:pasteIntoClaude() then return false end
+    if choice.send then port:send("enter") end
+    return true
+  end)
+end
+
+-- The palette file's entries, read fresh each time so edits apply immediately.
+function Actions:loadPalette()
+  local path = self.cfg.paletteFile
+  local text = self.port:readFile(path)
+  if not text then
+    self.port:toast("G-Override: can't read the palette file (" .. path .. ")")
+    return {}
+  end
+  local items = palette.parse(text)
+  if #items == 0 then
+    self.port:toast("G-Override: the palette file has no entries (" .. path .. ")")
+  end
+  return items
+end
+
 -- Copy the frontmost app's Selection with Cmd+C, which never interrupts a terminal.
 -- Returns {text, app, title}, or nil when nothing (or only whitespace) was selected. Leaves the
 -- copied text on the clipboard; callers own backing up and restoring it.
@@ -107,6 +162,17 @@ function Actions:captureRegion()
   local port = self.port
   return self:snip(function() return port:startRegionCapture() end, self.cfg.snipTimeoutMs,
     function() return port:regionCaptureOpen() end)
+end
+
+-- One window, captured by its ID in one shot and pasted into the Claude App. Capturing by ID rather
+-- than "the frontmost window" means the palette having taken focus doesn't matter.
+function Actions:captureWindow(windowId)
+  if not windowId then
+    self.port:toast("G-Override: no window to capture")
+    return false
+  end
+  local port = self.port
+  return self:snip(function() return port:captureWindow(windowId) end, self.cfg.windowSnipTimeoutMs)
 end
 
 -- Run a capture that puts an image on the clipboard, then paste it into Claude. A new image is

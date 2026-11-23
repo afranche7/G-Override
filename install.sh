@@ -143,7 +143,7 @@ doctor() {
   fi
   check "$(yes_if is_true "$loaded")" "Helper is running in Hammerspoon" \
     "$( [ "$running" = 1 ] && echo 'Reload Hammerspoon (menu bar icon > Reload Config) and check its Console for errors' || echo 'Start Hammerspoon (or run ./install.sh)')"
-  check "$(yes_if [ -n "$config" ])" "Config parses" "Needs Hammerspoon running with the Helper loaded; fix config.ini / config.local.ini (Hammerspoon's Console shows the error)"
+  check "$(yes_if [ -n "$config" ])" "Config and palette parse" "Needs Hammerspoon running with the Helper loaded; fix config.ini / config.local.ini / the palette file (Hammerspoon's Console shows the error)"
   check "$(yes_if is_true "$autolaunch")" "Starts at login (Hammerspoon auto-launch)" "Hammerspoon > Preferences > Launch Hammerspoon at login"
   check "$(yes_if is_true "$access")" "Accessibility permission granted to Hammerspoon" \
     "System Settings > Privacy & Security > Accessibility > turn on Hammerspoon"

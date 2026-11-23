@@ -1,3 +1,5 @@
 # Shell scripts run on macOS and in the Linux test container: always LF.
 *.sh text eol=lf
 *.lua text eol=lf
+# Shared palette fixtures: the tests also check each one with CRLF endings.
+tests/palette/*.md text eol=lf

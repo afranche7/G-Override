@@ -81,9 +81,10 @@ Tidy(items) {
             continue
         cleaned.Push(it)
     }
+    ; Dropping an empty group can leave a separator first or next to another one.
     out := []
     for it in cleaned {
-        if it.kind = "separator" && out.Length && out[out.Length].kind = "separator"
+        if it.kind = "separator" && (!out.Length || out[out.Length].kind = "separator")
             continue
         out.Push(it)
     }

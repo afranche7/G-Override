@@ -26,11 +26,19 @@ function FakePort.new()
     regionStartFails = false,  -- the capture tool can't be started
     activateDelayPolls = 0,    -- polls (sleeps) before an activated app is frontmost; math.huge = never
     pendingActivate = nil,     -- {id, polls}
+    files = {},                -- path -> text, for readFile
+    paletteChoice = "",        -- title of the Palette Entry the user picks; "" -> dismissed
+    paletteShown = nil,        -- items passed to showPalette
+    paletteStealsFocus = false,  -- the palette takes focus away from the frontmost app
+    windowCaptures = {},       -- window IDs passed to captureWindow, in order
+    windowCaptureFails = false,  -- the window capture can't start
+    windowCaptureEmpty = false,  -- the window capture starts but never delivers an image
   }, FakePort)
 end
 
 function FakePort:addApp(id, bundleId, name, title)
-  local app = { id = id, bundleId = bundleId, name = name, title = title or "" }
+  -- Each app's focused window gets an ID derived from the app's, e.g. 100 -> 1000.
+  local app = { id = id, bundleId = bundleId, name = name, title = title or "", windowId = id * 10 }
   table.insert(self.apps, app)
   return app
 end
@@ -115,6 +123,23 @@ function FakePort:toast(msg)
   table.insert(self.toasts, msg)
 end
 
+function FakePort:readFile(path)
+  local text = self.files[path]
+  if text == nil then return nil, path .. ": No such file or directory" end
+  return text
+end
+
+-- The user picks the entry titled paletteChoice, or dismisses the palette when it is "".
+function FakePort:showPalette(items)
+  self.paletteShown = items
+  if self.paletteStealsFocus then self.frontmostId = nil end
+  if self.paletteChoice == "" then return nil end
+  for _, it in ipairs(items) do
+    if it.kind == "entry" and it.title == self.paletteChoice then return it end
+  end
+  error("FakePort: no palette entry titled " .. self.paletteChoice)
+end
+
 -- --- clipboard ---------------------------------------------------------------
 
 function FakePort:clipboardChangeCount() return self.changeCount end
@@ -176,6 +201,20 @@ function FakePort:landRegionImage()
 end
 
 function FakePort:regionCaptureOpen() return self.regionOpen end
+
+-- Captures the window with that ID straight to the clipboard. Returns false if it can't start.
+function FakePort:captureWindow(windowId)
+  table.insert(self.windowCaptures, windowId)
+  if self.windowCaptureFails then return false end
+  if self.windowCaptureEmpty then return true end
+  for _, a in ipairs(self.apps) do
+    if a.windowId == windowId then
+      self.clipImage = "window:" .. a.title
+      self.changeCount = self.changeCount + 1
+    end
+  end
+  return true
+end
 
 -- --- helpers for assertions --------------------------------------------------
 

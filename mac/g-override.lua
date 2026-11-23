@@ -4,7 +4,8 @@
 local root = debug.getinfo(1, "S").source:gsub("^@", ""):gsub("/mac/g%-override%.lua$", "")
 package.path = root .. "/mac/?.lua;" .. package.path
 -- Reloading Hammerspoon re-runs this file; make sure the modules are re-read as well.
-for _, name in ipairs({ "g_override.config", "g_override.format", "g_override.actions", "g_override.bindings", "g_override.real_port" }) do
+for _, name in ipairs({ "g_override.config", "g_override.format", "g_override.palette", "g_override.palette_menu",
+  "g_override.actions", "g_override.bindings", "g_override.real_port" }) do
   package.loaded[name] = nil
 end
 
@@ -13,6 +14,7 @@ local config = require("g_override.config")
 local bindings = require("g_override.bindings")
 local Actions = require("g_override.actions")
 local RealPort = require("g_override.real_port")
+local palette = require("g_override.palette")
 
 local M = { root = root, hotkeys = {}, ok = false }
 
@@ -27,11 +29,20 @@ local function loadAll()
   return cfg, all
 end
 
--- Validates config; used by `install.sh --doctor`. Returns a short description, or throws.
+-- Validates config and the palette file; used by `install.sh --doctor`. Returns a short
+-- description, or throws.
 function M.check()
-  local _, all = loadAll()
+  local cfg, all = loadAll()
   local parts = {}
   for _, b in ipairs(all) do parts[#parts + 1] = b.button .. " -> " .. b.name .. " on " .. b.trigger end
+  local text, err = RealPort.new():readFile(cfg.paletteFile)
+  if not text then error("G-Override palette error: " .. tostring(err), 0) end
+  local entries = 0
+  for _, it in ipairs(palette.parse(text)) do
+    if it.kind == "entry" then entries = entries + 1 end
+  end
+  if entries == 0 then error("G-Override palette error: " .. cfg.paletteFile .. " (no entries)", 0) end
+  parts[#parts + 1] = "palette: " .. entries .. " entries in " .. cfg.paletteFile
   return table.concat(parts, ", ")
 end
 
