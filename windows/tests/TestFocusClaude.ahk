@@ -58,3 +58,13 @@ Test("Focus Claude shows a toast and leaves focus alone if Claude never starts",
     AssertEq(port.activeId, 100),
     AssertEq(port.toasts.Length, 1)
 ))
+
+Test("Focus Claude without a Claude App launch id toasts instead of launching anything", () => (
+    port := NewFocusWorld(),
+    cfg := TestConfig(),
+    cfg.claudeAppId := "",
+    AssertFalse(Actions(port, cfg).FocusClaude()),
+    AssertEq(port.launches, 0),
+    AssertEq(port.toasts.Length, 1),
+    AssertEq(port.activeId, 100)
+))

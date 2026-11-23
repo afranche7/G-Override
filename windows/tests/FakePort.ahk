@@ -12,6 +12,7 @@ class FakePort {
         this.copyKeyHonoured := ""  ; if set, only this copy key copies the selection
         this.pendingLaunch := ""    ; window that appears after Launch + a Sleep
         this.launchedAppId := ""
+        this.launches := 0
         this.regionResult := ""     ; "image" -> a region capture lands on the clipboard; "" -> cancelled
         this.paletteChoice := ""    ; title of the Palette Entry the user picks; "" -> dismissed
         this.paletteShown := ""     ; entries passed to ShowPalette
@@ -22,6 +23,9 @@ class FakePort {
         this.toasts := []
         this.sleptMs := 0
         this.regionCaptures := 0
+        this.regionOpen := false    ; the capture UI is on screen
+        this.imageDelayPolls := 0   ; polls (Sleeps) before a captured image lands on the clipboard
+        this.pendingImagePolls := 0
     }
 
     AddWindow(id, exe, path, title) {
@@ -55,6 +59,7 @@ class FakePort {
     }
     Launch(appId) {
         this.launchedAppId := appId
+        this.launches += 1
     }
     Sleep(ms) {
         this.sleptMs += ms
@@ -62,6 +67,9 @@ class FakePort {
             this.windows.Push(this.pendingLaunch)
             this.pendingLaunch := ""
         }
+        this.regionOpen := false
+        if this.pendingImagePolls > 0 && --this.pendingImagePolls = 0
+            this.LandRegionImage()
     }
 
     ; --- clipboard ---------------------------------------------------------
@@ -95,13 +103,23 @@ class FakePort {
             this.pasted.Push({target: this.activeId, text: this.ClipboardText(), image: this.clipImage})
         }
     }
+    ; The capture UI opens, closes at the user's next move (Sleep), and a captured image
+    ; lands on the clipboard immediately or imageDelayPolls Sleeps later.
     StartRegionCapture() {
         this.regionCaptures += 1
+        this.regionOpen := true
         if this.regionResult = "image" {
-            this.clipImage := "region"
-            this.seq += 1
+            if this.imageDelayPolls = 0
+                this.LandRegionImage()
+            else
+                this.pendingImagePolls := this.imageDelayPolls
         }
     }
+    LandRegionImage() {
+        this.clipImage := "region"
+        this.seq += 1
+    }
+    RegionCaptureOpen() => this.regionOpen
     CaptureActiveWindow() {
         w := this.ActiveWindow()
         this.clipImage := "window:" (IsObject(w) ? w.title : "")

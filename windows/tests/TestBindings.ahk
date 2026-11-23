@@ -45,3 +45,13 @@ Test("Running the G8 binding opens the Prompt Palette", () => (
     RunBinding(Actions(port, TestConfig()), ButtonBindings(TestConfig())[3]),
     AssertEq(port.paletteShown.Length, 1)
 ))
+
+Test("Two Buttons on the same Trigger Key are rejected", () => (
+    cfg := TestConfig(),
+    cfg.triggers.sendToClaude := "f17",
+    AssertTrue(Throws(() => CheckBindings(ButtonBindings(cfg))), "expected a duplicate Trigger Key error")
+))
+
+Test("Distinct Trigger Keys pass the check", () => (
+    CheckBindings(ButtonBindings(TestConfig()))
+))

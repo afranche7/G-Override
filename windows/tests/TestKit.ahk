@@ -63,3 +63,11 @@ T_Finish() {
     T_Out("`n" T_pass " passed, " T_fail " failed")
     ExitApp(T_fail)
 }
+
+; True if fn() throws.
+Throws(fn) {
+    try fn()
+    catch
+        return true
+    return false
+}

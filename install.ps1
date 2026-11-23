@@ -157,5 +157,5 @@ Write-Host ''
 Write-Host 'Tip (VS Code): G7 with nothing selected should snip, but VS Code copies the whole line on an' -ForegroundColor DarkGray
 Write-Host '  empty selection. Turn that off: Settings > "editor.emptySelectionClipboard" = false.' -ForegroundColor DarkGray
 Write-Host ''
-Write-Host 'Done. Next: map G6/G7/G8 to F17/F18/F19 in the mouse''s Onboard Profile (see docs/onboard-profile.md),' -ForegroundColor Green
+Write-Host 'Done. Next: in G HUB, map G6/G7/G8 to F17/F18/F19 in the mouse''s Onboard Profile and turn on onboard memory mode,' -ForegroundColor Green
 Write-Host 'then check everything with: .\install.ps1 -Doctor' -ForegroundColor Green

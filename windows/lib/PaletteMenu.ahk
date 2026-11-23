@@ -43,12 +43,15 @@ class PaletteMenu {
             this.edit.Focus()
             hwnd := g.Hwnd
             wasActive := false
+            shownAt := A_TickCount
             while !this.done {
                 Sleep(15)
                 if WinActive("ahk_id " hwnd)
                     wasActive := true
                 else if wasActive
                     this.done := true  ; clicked away
+                else if A_TickCount - shownAt > 2000
+                    this.done := true  ; never got focus (Windows refused it): don't leave G8 stuck
             }
         } finally {
             OnMessage(0x100, keyHandler, 0)

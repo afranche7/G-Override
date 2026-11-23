@@ -55,6 +55,7 @@ class RealPort {
     StartRegionCapture() {
         Run("ms-screenclip:")
     }
+    RegionCaptureOpen() => WinExist("Snipping Tool Overlay") != 0
     CaptureActiveWindow() {
         SendInput("!{PrintScreen}")
     }

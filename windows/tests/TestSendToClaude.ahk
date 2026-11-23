@@ -138,3 +138,18 @@ Test("Send to Claude launches the Claude App first if it isn't running", () => (
 ))
 
 Fence(n) => StrRepeat(Chr(96), n)
+
+Test("A cancelled snip returns long before the snip timeout, so the Button isn't dead", () => (
+    port := NewSendWorld(),
+    port.regionResult := "",
+    Actions(port, TestConfig()).SendToClaude(),
+    AssertTrue(port.sleptMs < 5000, "waited " port.sleptMs " ms after a cancel")
+))
+
+Test("A slow-arriving image just after the capture UI closes is still pasted", () => (
+    port := NewSendWorld(),
+    port.regionResult := "image",
+    port.imageDelayPolls := 5,
+    Actions(port, TestConfig()).SendToClaude(),
+    AssertEq(LastPaste(port).image, "region")
+))

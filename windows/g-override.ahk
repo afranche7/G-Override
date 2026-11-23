@@ -20,8 +20,9 @@ Main() {
     try {
         cfg := LoadConfig(ROOT "\config.ini", ROOT "\config.local.ini")
         bindings := ButtonBindings(cfg)
+        CheckBindings(bindings)  ; throws if two Buttons share a Trigger Key
         for b in bindings
-            ToAhkHotkey(b.trigger)  ; throws on a malformed Trigger Key
+            Hotkey(ToAhkHotkey(b.trigger), (*) => 0, "Off")  ; throws on a key AutoHotkey doesn't know
     } catch as e {
         Fail("G-Override config error: " e.Message (e.Extra != "" ? " (" e.Extra ")" : ""))
     }
@@ -47,7 +48,7 @@ Main() {
     CloseOtherInstances()
     helper := Actions(RealPort(), cfg)
     for b in bindings
-        Hotkey(ToAhkHotkey(b.trigger), MakeHandler(helper, cfg, b))
+        Hotkey(ToAhkHotkey(b.trigger), MakeHandler(helper, cfg, b), "On")  ; "On": the validation above left it Off
 
     A_IconTip := "G-Override (G6/G7/G8 -> Claude)"
     A_TrayMenu.Insert("1&", "Reload G-Override", (*) => Reload())

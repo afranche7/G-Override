@@ -11,3 +11,14 @@ ButtonBindings(cfg) {
 RunBinding(actions, binding) {
     return actions.%binding.action%()
 }
+
+; Throws if two Buttons share a Trigger Key (the second would silently replace the first).
+CheckBindings(bindings) {
+    seen := Map()
+    for b in bindings {
+        key := StrLower(ToAhkHotkey(b.trigger))
+        if seen.Has(key)
+            throw Error("Trigger Key '" b.trigger "' is used by both " seen[key] " and " b.button)
+        seen[key] := b.button
+    }
+}

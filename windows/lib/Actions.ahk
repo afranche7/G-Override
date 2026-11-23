@@ -1,6 +1,7 @@
 ; The Action layer: what each Trigger Key does, expressed only through the OS port.
 class Actions {
     static POLL_MS := 50
+    static CANCEL_GRACE_MS := 1500  ; how long a closed capture UI may take to deliver its image
 
     __New(port, cfg) {
         this.port := port
@@ -33,6 +34,10 @@ class Actions {
             this.prevWindowId := active.id
 
         if !IsObject(claude) {
+            if this.cfg.claudeAppId = "" {
+                port.Toast("G-Override: the Claude App isn't running and its launch id isn't set; re-run install.ps1")
+                return false
+            }
             port.Launch(this.cfg.claudeAppId)
             claude := this.WaitFor(() => this.FindClaude(), this.cfg.launchTimeoutMs)
             if !IsObject(claude) {
@@ -51,7 +56,7 @@ class Actions {
         try {
             sel := this.CaptureSelection()
             if !IsObject(sel)
-                return this.Snip(() => this.port.StartRegionCapture(), this.cfg.snipTimeoutMs)
+                return this.CaptureRegion()
             this.port.ClipboardSetText(SourceLine(sel.app, sel.title) "`n" FencedBlock(sel.text))
             return this.PasteIntoClaude()
         } finally {
@@ -62,7 +67,7 @@ class Actions {
     ; Capture a dragged region and paste the image into Claude's prompt.
     RegionSnip() {
         backup := this.port.ClipboardBackup()
-        try return this.Snip(() => this.port.StartRegionCapture(), this.cfg.snipTimeoutMs)
+        try return this.CaptureRegion()
         finally this.port.ClipboardRestore(backup)
     }
 
@@ -84,9 +89,9 @@ class Actions {
             if IsObject(origin)
                 port.Activate(origin.id)  ; the palette may have taken focus; snips capture this window
             if choice.action = "region-snip"
-                return this.Snip(() => port.StartRegionCapture(), this.cfg.snipTimeoutMs)
+                return this.CaptureRegion()
             if choice.action = "window-snip"
-                return this.Snip(() => port.CaptureActiveWindow(), this.cfg.windowSnipTimeoutMs)
+                return this.CaptureWindow()
 
             selText := IsObject(sel) ? sel.text : ""
             text := RTrim(FillPalette(choice.body, selText, userClip), " `t`r`n")  ; a blank {selection} leaves no dangling space
@@ -119,7 +124,7 @@ class Actions {
     ; Capture the active window and paste the image into Claude's prompt.
     WindowSnip() {
         backup := this.port.ClipboardBackup()
-        try return this.Snip(() => this.port.CaptureActiveWindow(), this.cfg.windowSnipTimeoutMs)
+        try return this.CaptureWindow()
         finally this.port.ClipboardRestore(backup)
     }
 
@@ -140,15 +145,44 @@ class Actions {
         return {text: port.ClipboardText(), app: active.exe, title: active.title}
     }
 
+    ; A dragged-region capture pasted into Claude. The OS capture UI tells us when it has closed,
+    ; so a cancel (Esc) ends the wait soon after instead of holding the Button for the full timeout.
+    CaptureRegion() {
+        port := this.port
+        return this.Snip(() => port.StartRegionCapture(), this.cfg.snipTimeoutMs, () => port.RegionCaptureOpen())
+    }
+
+    ; The active window captured in one shot and pasted into Claude.
+    CaptureWindow() {
+        port := this.port
+        return this.Snip(() => port.CaptureActiveWindow(), this.cfg.windowSnipTimeoutMs)
+    }
+
     ; Run a capture that puts an image on the clipboard, then paste it into Claude.
-    ; Does nothing if no new image arrives within timeoutMs (e.g. the user pressed Esc).
-    Snip(startCapture, timeoutMs) {
+    ; Does nothing if no new image arrives within timeoutMs, or (when isCaptureOpen is given) if
+    ; the capture UI closed without one, which is how a cancel looks.
+    Snip(startCapture, timeoutMs, isCaptureOpen := "") {
         port := this.port
         port.ClipboardClear()
         seq := port.ClipboardSeq()
         startCapture()
-        if !this.WaitFor(() => port.ClipboardSeq() != seq && port.ClipboardHasImage(), timeoutMs)
-            return false
+        seenOpen := false
+        closedMs := 0
+        waited := 0
+        loop {
+            if port.ClipboardSeq() != seq && port.ClipboardHasImage()
+                break
+            if waited >= timeoutMs
+                return false
+            if IsObject(isCaptureOpen) {
+                if isCaptureOpen()
+                    seenOpen := true, closedMs := 0
+                else if seenOpen && (closedMs += Actions.POLL_MS) >= Actions.CANCEL_GRACE_MS
+                    return false
+            }
+            port.Sleep(Actions.POLL_MS)
+            waited += Actions.POLL_MS
+        }
         return this.PasteIntoClaude()
     }
 

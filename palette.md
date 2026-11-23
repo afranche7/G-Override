@@ -9,6 +9,8 @@
     @window-snip
   With no {selection} in an entry, selected text is appended as a fenced block.
   "---" draws a separator; a "# Name" line adds a group label.
+  Limit: inside an entry body, a line that is exactly "---" or starts with "# " ends the entry,
+  so a prompt can't contain those lines.
 -->
 
 ## /grill-with-docs
