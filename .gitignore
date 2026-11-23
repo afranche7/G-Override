@@ -1,0 +1,3 @@
+config.local.ini
+*.log
+.scratch/
