@@ -1,0 +1,59 @@
+# How Send to Claude formats a Selection: the source line and the fenced block.
+# Both Helpers' tests run every case here, so Windows and macOS format identically.
+#
+# A case is a [source line] or [fenced block] header followed by "key: value" lines.
+# In values, \n is a newline, \r a carriage return, \t a tab and \\ a backslash.
+# Blank lines and lines starting with # are ignored.
+
+[source line]
+app: chrome.exe
+title: localhost:3000 - Google Chrome
+want: From chrome — localhost:3000 - Google Chrome
+
+[source line]
+app: WindowsTerminal.exe
+title: npm run dev
+want: From WindowsTerminal — npm run dev
+
+[source line]
+app: powershell.EXE
+title: PS
+want: From powershell — PS
+
+[source line]
+app: Google Chrome
+title: localhost:3000 - Issue #6
+want: From Google Chrome — localhost:3000 - Issue #6
+
+[source line]
+app: iTerm2
+title:
+want: From iTerm2
+
+[fenced block]
+text: TypeError: x is undefined\n    at main.js:12
+want: ```\nTypeError: x is undefined\n    at main.js:12\n```\n
+
+[fenced block]
+text: line one\r\nline two\r\n\r\n
+want: ```\nline one\nline two\n```\n
+
+[fenced block]
+text: \tindented with a tab\n  and spaces
+want: ```\n\tindented with a tab\n  and spaces\n```\n
+
+[fenced block]
+text: run `npm i` first
+want: ```\nrun `npm i` first\n```\n
+
+[fenced block]
+text: see:\n```js\nx()\n```
+want: ````\nsee:\n```js\nx()\n```\n````\n
+
+[fenced block]
+text: a ````` run
+want: ``````\na ````` run\n``````\n
+
+[fenced block]
+text: C:\\Users\\me
+want: ```\nC:\\Users\\me\n```\n

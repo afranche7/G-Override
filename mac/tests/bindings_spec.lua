@@ -22,6 +22,25 @@ describe("Bindings", function()
     assert.are.equal(200, port.frontmostId)
   end)
 
+  it("binds G7 to Send to Claude on its configured Trigger Key", function()
+    local b = bindings.buttonBindings(helpers.testConfig())
+    assert.are.equal("G7", b[2].button)
+    assert.are.equal("F18", b[2].trigger)
+    assert.are.equal("Send to Claude", b[2].name)
+  end)
+
+  it("runs Send to Claude when the G7 binding fires", function()
+    local port = FakePort.new()
+    port:addApp(100, "com.google.Chrome", "Google Chrome", "Docs")
+    port:addApp(200, "com.anthropic.claudefordesktop", "Claude")
+    port.frontmostId = 100
+    port.selection = "hello"
+    local cfg = helpers.testConfig()
+    bindings.run(Actions.new(port, cfg), bindings.buttonBindings(cfg)[2])
+    assert.are.equal(200, port.pasted[1].target)
+    assert.truthy(port.pasted[1].text:find("hello", 1, true))
+  end)
+
   it("shows a debug toast naming the Button and Action when debug is on", function()
     local port = FakePort.new()
     local cfg = helpers.testConfig()

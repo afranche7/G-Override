@@ -101,6 +101,16 @@ Test("Send to Claude with nothing selected snips a region and pastes the image i
     AssertFalse(port.SentEnter(), "Enter was sent")
 ))
 
+Test("Send to Claude with no window in front snips a region", () => (
+    port := NewSendWorld(),
+    port.activeId := 0,
+    port.selection := "stale text no window owns",
+    port.regionResult := "image",
+    Actions(port, TestConfig()).SendToClaude(),
+    AssertEq(port.regionCaptures, 1),
+    AssertEq(LastPaste(port).image, "region")
+))
+
 Test("A whitespace-only selection counts as nothing selected", () => (
     port := NewSendWorld(),
     port.selection := "  `n ",

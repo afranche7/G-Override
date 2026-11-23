@@ -20,4 +20,28 @@ function M.testConfig()
   return config.load(M.REPO_ROOT .. "/config.ini")
 end
 
+local ESCAPES = { n = "\n", r = "\r", t = "\t", ["\\"] = "\\" }
+
+-- The formatting cases both Helpers' tests share (tests/format_cases.txt):
+-- { {kind = "source line" | "fenced block", app, title, text, want, line}, ... }
+function M.formatCases()
+  local path = M.REPO_ROOT .. "/tests/format_cases.txt"
+  local f = assert(io.open(path, "rb"))
+  local cases, n = {}, 0
+  for line in f:lines() do
+    n = n + 1
+    line = line:gsub("\r$", "")
+    local kind = line:match("^%[(.+)%]$")
+    if kind then
+      cases[#cases + 1] = { kind = kind, line = n }
+    elseif line ~= "" and not line:find("^#") then
+      local key, value = line:match("^(%a+):%s?(.*)$")
+      assert(key and #cases > 0, path .. ":" .. n .. ": can't parse '" .. line .. "'")
+      cases[#cases][key] = value:gsub("\\(.)", ESCAPES)
+    end
+  end
+  f:close()
+  return cases
+end
+
 return M

@@ -4,7 +4,7 @@
 local root = debug.getinfo(1, "S").source:gsub("^@", ""):gsub("/mac/g%-override%.lua$", "")
 package.path = root .. "/mac/?.lua;" .. package.path
 -- Reloading Hammerspoon re-runs this file; make sure the modules are re-read as well.
-for _, name in ipairs({ "g_override.config", "g_override.actions", "g_override.bindings", "g_override.real_port" }) do
+for _, name in ipairs({ "g_override.config", "g_override.format", "g_override.actions", "g_override.bindings", "g_override.real_port" }) do
   package.loaded[name] = nil
 end
 
@@ -40,12 +40,21 @@ local ok, err = pcall(function()
   local helper = Actions.new(RealPort.new(), cfg)
   for _, b in ipairs(all) do
     local mods, key = bindings.toHotkey(b.trigger)
+    local busy = false
     M.hotkeys[#M.hotkeys + 1] = hs.hotkey.bind(mods, key, function()
-      local okRun, runErr = pcall(bindings.run, helper, b)
-      if not okRun then
-        helper.port:toast("G-Override error: " .. tostring(runErr))
-        print("G-Override error: " .. tostring(runErr))
-      end
+      -- Like AutoHotkey's one thread per hotkey: pressing a Button again while its Action is still
+      -- waiting (on a snip, say) is ignored. Other Buttons still work.
+      if busy then return end
+      busy = true
+      -- In a coroutine, the Action's waits yield to Hammerspoon instead of freezing it.
+      coroutine.wrap(function()
+        local okRun, runErr = pcall(bindings.run, helper, b)
+        busy = false
+        if not okRun then
+          helper.port:toast("G-Override error: " .. tostring(runErr))
+          print("G-Override error: " .. tostring(runErr))
+        end
+      end)()
     end)
   end
 end)

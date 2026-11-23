@@ -1,5 +1,7 @@
 -- The real OS port: thin wrappers over Hammerspoon's hs.* modules.
 -- Keep logic out of here; it belongs in the Action layer, where it is tested.
+local bindings = require("g_override.bindings")  -- parses neutral key specs like "cmd+v"
+
 local M = {}
 M.__index = M
 
@@ -12,8 +14,15 @@ local function describe(app)
   return { id = app:pid(), bundleId = app:bundleID(), name = app:name() }
 end
 
+-- The frontmost app, with its focused window's title (for Send to Claude's source line).
 function M:frontmostApp()
-  return describe(hs.application.frontmostApplication())
+  local app = hs.application.frontmostApplication()
+  local out = describe(app)
+  if out then
+    local win = app:focusedWindow()
+    out.title = win and win:title() or ""
+  end
+  return out
 end
 
 function M:findAppByBundleId(bundleId)
@@ -43,12 +52,59 @@ function M:launch(bundleId, name, timeoutMs)
   end
 end
 
+-- Inside a coroutine (how g-override.lua runs Actions), hand the time back to Hammerspoon's run
+-- loop so hotkeys, timers and hs.task keep working while an Action waits. Elsewhere, block.
 function M:sleep(ms)
-  hs.timer.usleep(ms * 1000)
+  if coroutine.applicationYield and coroutine.isyieldable() then
+    coroutine.applicationYield(ms / 1000)
+  else
+    hs.timer.usleep(ms * 1000)
+  end
 end
 
 function M:toast(msg)
   hs.alert.show(msg, 2)
+end
+
+-- --- clipboard ---------------------------------------------------------------
+
+function M:clipboardChangeCount() return hs.pasteboard.changeCount() end
+function M:clipboardText() return hs.pasteboard.readString() or "" end
+function M:clipboardHasImage() return hs.pasteboard.typesAvailable().image == true end
+-- Every representation of the clipboard's first item (text, rich text, image...), keyed by UTI.
+function M:clipboardBackup() return hs.pasteboard.readAllData() or {} end
+
+function M:clipboardRestore(backup)
+  if next(backup) then
+    hs.pasteboard.writeAllData(backup)
+  else
+    hs.pasteboard.clearContents()
+  end
+end
+
+function M:clipboardClear() hs.pasteboard.clearContents() end
+function M:clipboardSetText(s) hs.pasteboard.setContents(s) end
+
+-- --- input / capture ---------------------------------------------------------
+
+local KEY_NAMES = { enter = "return" }  -- neutral key names -> hs.keycodes.map names
+
+-- Presses a neutral key spec such as "cmd+c" in the frontmost app.
+function M:send(keys)
+  local mods, key = bindings.toHotkey(keys)
+  hs.eventtap.keyStroke(mods, KEY_NAMES[key] or key, 20000)
+end
+
+-- macOS's own interactive capture (drag a region, Space for a window, Esc to cancel), straight to
+-- the clipboard. screencapture exits when the user finishes or cancels. Returns false if it can't start.
+function M:startRegionCapture()
+  local task = hs.task.new("/usr/sbin/screencapture", nil, { "-i", "-c" })
+  self.regionTask = task and task:start() and task or nil
+  return self.regionTask ~= nil
+end
+
+function M:regionCaptureOpen()
+  return self.regionTask ~= nil and self.regionTask:isRunning()
 end
 
 return M

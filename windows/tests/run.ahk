@@ -14,6 +14,7 @@ TestConfig() {
 }
 
 #Include TestConfig.ahk
+#Include TestFormat.ahk
 #Include TestFocusClaude.ahk
 #Include TestSendToClaude.ahk
 #Include TestPalette.ahk
