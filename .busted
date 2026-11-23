@@ -1,0 +1,8 @@
+-- busted config for the macOS Helper tests. Run `busted` from the repo root.
+return {
+  default = {
+    ROOT = { "mac/tests" },
+    pattern = "_spec",
+    lpath = "mac/?.lua;mac/tests/?.lua",
+  },
+}
