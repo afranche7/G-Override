@@ -33,3 +33,13 @@ Test("Key specs translate to AHK Send syntax", () => (
     AssertEq(ToAhkSend("enter"), "{Enter}"),
     AssertEq(ToAhkSend("alt+printscreen"), "!{PrintScreen}")
 ))
+
+Test("Palette file defaults to palette.md at the repo root, and absolute paths are kept", () => (
+    AssertEq(TestConfig().paletteFile, REPO_ROOT "\palette.md"),
+    localIni := A_Temp "\g-override-test-local2.ini",
+    FileExist(localIni) ? FileDelete(localIni) : 0,
+    IniWrite("D:\mine\prompts.md", localIni, "palette", "file"),
+    cfg := LoadConfig(REPO_ROOT "\config.ini", localIni),
+    FileDelete(localIni),
+    AssertEq(cfg.paletteFile, "D:\mine\prompts.md")
+))

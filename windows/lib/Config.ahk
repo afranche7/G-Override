@@ -33,8 +33,17 @@ LoadConfig(baseIni, localIni := "") {
         defaultCopyKey: get("copy", "windows_default_copy_key", "ctrl+c"),
         copyTimeoutMs: num("timing", "copy_timeout_ms", 400),
         snipTimeoutMs: num("timing", "snip_timeout_ms", 30000),
+        windowSnipTimeoutMs: num("timing", "window_snip_timeout_ms", 2000),
         launchTimeoutMs: num("timing", "launch_timeout_ms", 15000),
         pasteSettleMs: num("timing", "paste_settle_ms", 250),
+        paletteFile: ResolvePath(baseIni, get("palette", "file", "palette.md")),
         debug: get("debug", "enabled", "0") = "1",
     }
+}
+
+; Relative paths in config are resolved from the folder that holds config.ini (the repo root).
+ResolvePath(baseIni, path) {
+    if RegExMatch(path, "^([A-Za-z]:[\\/]|[\\/]{2})")
+        return path
+    return RegExReplace(baseIni, "[\\/][^\\/]*$") "\" StrReplace(path, "/", "\")
 }

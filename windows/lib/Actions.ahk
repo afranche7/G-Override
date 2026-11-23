@@ -66,6 +66,63 @@ class Actions {
         finally this.port.ClipboardRestore(backup)
     }
 
+    ; Open the Prompt Palette at the cursor and run the picked entry. The Selection is captured
+    ; first, before the palette takes focus. Dismissing it does nothing.
+    PromptPalette() {
+        port := this.port
+        items := this.LoadPalette()
+        if !items.Length
+            return false
+        userClip := port.ClipboardText()
+        origin := port.ActiveWindow()
+        backup := port.ClipboardBackup()
+        try {
+            sel := this.CaptureSelection()
+            choice := port.ShowPalette(items)
+            if !IsObject(choice)
+                return false
+            if IsObject(origin)
+                port.Activate(origin.id)  ; the palette may have taken focus; snips capture this window
+            if choice.action = "region-snip"
+                return this.Snip(() => port.StartRegionCapture(), this.cfg.snipTimeoutMs)
+            if choice.action = "window-snip"
+                return this.Snip(() => port.CaptureActiveWindow(), this.cfg.windowSnipTimeoutMs)
+
+            selText := IsObject(sel) ? sel.text : ""
+            text := RTrim(FillPalette(choice.body, selText, userClip), " `t`r`n")  ; a blank {selection} leaves no dangling space
+            if selText != "" && !InStr(choice.body, "{selection}")
+                text .= "`n`n" FencedBlock(selText)
+            port.ClipboardSetText(text)
+            if !this.PasteIntoClaude()
+                return false
+            if choice.send
+                port.Send("enter")
+            return true
+        } finally {
+            port.ClipboardRestore(backup)
+        }
+    }
+
+    ; The palette file's entries, read fresh each time so edits apply immediately.
+    LoadPalette() {
+        try text := this.port.ReadFile(this.cfg.paletteFile)
+        catch {
+            this.port.Toast("G-Override: can't read the palette file (" this.cfg.paletteFile ")")
+            return []
+        }
+        items := ParsePalette(text)
+        if !items.Length
+            this.port.Toast("G-Override: the palette file has no entries (" this.cfg.paletteFile ")")
+        return items
+    }
+
+    ; Capture the active window and paste the image into Claude's prompt.
+    WindowSnip() {
+        backup := this.port.ClipboardBackup()
+        try return this.Snip(() => this.port.CaptureActiveWindow(), this.cfg.windowSnipTimeoutMs)
+        finally this.port.ClipboardRestore(backup)
+    }
+
     ; Copy the active app's Selection via its copy key. Returns {text, app, title}, or ""
     ; when nothing (or only whitespace) was selected. Leaves the copied text on the clipboard;
     ; callers own backing up and restoring it.

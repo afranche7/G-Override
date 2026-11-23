@@ -95,7 +95,7 @@ function Invoke-Doctor {
     $allOk = (Write-Check ([bool]$ahk) "AutoHotkey v2 installed $(if ($ahk) { "($ahk)" })" 'Run .\install.ps1') -and $allOk
     if ($ahk) {
         $check = Invoke-HelperCheck $ahk
-        $allOk = (Write-Check $check.Ok 'Config parses' ($check.Output -replace '\s+$', '')) -and $allOk
+        $allOk = (Write-Check $check.Ok 'Config and palette parse' ($check.Output -replace '\s+$', '')) -and $allOk
     }
     $allOk = (Write-Check ([bool](Get-HelperProcess)) 'Helper is running' 'Run .\install.ps1 (or start windows\g-override.ahk)') -and $allOk
     $allOk = (Write-Check (Test-Path $StartupShortcut) 'Starts at login (Startup shortcut)' 'Run .\install.ps1') -and $allOk

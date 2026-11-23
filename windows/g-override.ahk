@@ -5,9 +5,10 @@ Persistent
 
 ; G-Override Helper for Windows: turns the G502's Trigger Keys into Actions.
 ;   AutoHotkey64.exe g-override.ahk           run the Helper
-;   AutoHotkey64.exe g-override.ahk --check   validate config (+ palette), print the result, exit
+;   AutoHotkey64.exe g-override.ahk --check   validate config and palette, print the result, exit
 
 #Include lib\Core.ahk
+#Include lib\PaletteMenu.ahk
 #Include lib\RealPort.ahk
 
 ROOT := RegExReplace(A_LineFile, "\\windows\\g-override\.ahk$")
@@ -26,9 +27,20 @@ Main() {
     }
 
     if HasArg("--check") {
+        try {
+            palette := ParsePalette(FileRead(cfg.paletteFile, "UTF-8"))
+            if !palette.Length
+                throw Error("no entries")
+        } catch as e {
+            Fail("G-Override palette error: " cfg.paletteFile " (" e.Message ")")
+        }
         Out("config ok: " ROOT "\config.ini")
         for b in bindings
             Out("  " b.button " -> " b.name " on " b.trigger)
+        n := 0
+        for it in palette
+            n += it.kind = "entry"
+        Out("palette ok: " n " entries in " cfg.paletteFile)
         ExitApp(0)
     }
 

@@ -58,6 +58,8 @@ class RealPort {
     CaptureActiveWindow() {
         SendInput("!{PrintScreen}")
     }
+    ReadFile(path) => FileRead(path, "UTF-8")
+    ShowPalette(entries) => PaletteMenu(entries).Show()
     Toast(msg) {
         ToolTip(msg)
         SetTimer(() => ToolTip(), -2000)

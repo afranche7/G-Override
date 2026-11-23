@@ -15,6 +15,8 @@ class FakePort {
         this.regionResult := ""     ; "image" -> a region capture lands on the clipboard; "" -> cancelled
         this.paletteChoice := ""    ; title of the Palette Entry the user picks; "" -> dismissed
         this.paletteShown := ""     ; entries passed to ShowPalette
+        this.paletteStealsFocus := false  ; the palette menu takes focus away from the active window
+        this.files := Map()         ; path -> text, for ReadFile
         this.sent := []             ; neutral key specs sent, in order
         this.pasted := []           ; [{target, text, image}]
         this.toasts := []
@@ -107,12 +109,19 @@ class FakePort {
     }
     ShowPalette(entries) {
         this.paletteShown := entries
+        if this.paletteStealsFocus
+            this.activeId := 0
         if this.paletteChoice = ""
             return ""
         for e in entries
-            if e.title = this.paletteChoice
+            if e.kind = "entry" && e.title = this.paletteChoice
                 return e
         throw Error("FakePort: no palette entry titled " this.paletteChoice)
+    }
+    ReadFile(path) {
+        if !this.files.Has(path)
+            throw Error("FakePort: no such file " path)
+        return this.files[path]
     }
     Toast(msg) {
         this.toasts.Push(msg)

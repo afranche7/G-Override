@@ -2,5 +2,6 @@
 #Include Config.ahk
 #Include Keys.ahk
 #Include Format.ahk
+#Include Palette.ahk
 #Include Actions.ahk
 #Include Bindings.ahk
