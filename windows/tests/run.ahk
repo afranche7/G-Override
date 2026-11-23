@@ -15,6 +15,7 @@ TestConfig() {
 
 #Include TestConfig.ahk
 #Include TestFocusClaude.ahk
+#Include TestSendToClaude.ahk
 #Include TestBindings.ahk
 
 T_Finish()

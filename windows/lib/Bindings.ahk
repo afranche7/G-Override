@@ -2,6 +2,7 @@
 ButtonBindings(cfg) {
     return [
         {button: "G6", name: "Focus Claude", trigger: cfg.triggers.focusClaude, action: "FocusClaude"},
+        {button: "G7", name: "Send to Claude", trigger: cfg.triggers.sendToClaude, action: "SendToClaude"},
     ]
 }
 

@@ -44,6 +44,66 @@ class Actions {
         return true
     }
 
+    ; Put the current Selection into Claude's prompt as a fenced block with its source.
+    ; With no Selection, fall back to a Region Snip. Never submits; restores the clipboard.
+    SendToClaude() {
+        backup := this.port.ClipboardBackup()
+        try {
+            sel := this.CaptureSelection()
+            if !IsObject(sel)
+                return this.Snip(() => this.port.StartRegionCapture(), this.cfg.snipTimeoutMs)
+            this.port.ClipboardSetText(SourceLine(sel.app, sel.title) "`n" FencedBlock(sel.text))
+            return this.PasteIntoClaude()
+        } finally {
+            this.port.ClipboardRestore(backup)
+        }
+    }
+
+    ; Capture a dragged region and paste the image into Claude's prompt.
+    RegionSnip() {
+        backup := this.port.ClipboardBackup()
+        try return this.Snip(() => this.port.StartRegionCapture(), this.cfg.snipTimeoutMs)
+        finally this.port.ClipboardRestore(backup)
+    }
+
+    ; Copy the active app's Selection via its copy key. Returns {text, app, title}, or ""
+    ; when nothing (or only whitespace) was selected. Leaves the copied text on the clipboard;
+    ; callers own backing up and restoring it.
+    CaptureSelection() {
+        port := this.port
+        active := port.ActiveWindow()
+        if !IsObject(active)
+            return ""
+        port.ClipboardClear()
+        seq := port.ClipboardSeq()
+        port.Send(CopyKeyFor(active.exe, this.cfg))
+        copied := this.WaitFor(() => port.ClipboardSeq() != seq && port.ClipboardText() != "", this.cfg.copyTimeoutMs)
+        if !copied || Trim(port.ClipboardText(), " `t`r`n") = ""
+            return ""
+        return {text: port.ClipboardText(), app: active.exe, title: active.title}
+    }
+
+    ; Run a capture that puts an image on the clipboard, then paste it into Claude.
+    ; Does nothing if no new image arrives within timeoutMs (e.g. the user pressed Esc).
+    Snip(startCapture, timeoutMs) {
+        port := this.port
+        port.ClipboardClear()
+        seq := port.ClipboardSeq()
+        startCapture()
+        if !this.WaitFor(() => port.ClipboardSeq() != seq && port.ClipboardHasImage(), timeoutMs)
+            return false
+        return this.PasteIntoClaude()
+    }
+
+    ; Focus Claude (never toggling away) and paste whatever is on the clipboard. Never submits.
+    PasteIntoClaude() {
+        if !this.FocusClaude(false)
+            return false
+        this.port.Send("ctrl+v")
+        this.port.Sleep(this.cfg.pasteSettleMs)  ; let Claude read the clipboard before it's restored
+        return true
+    }
+
     ; Poll fn() until it returns something truthy or timeoutMs elapses.
     WaitFor(fn, timeoutMs) {
         waited := 0
